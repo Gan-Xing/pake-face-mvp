@@ -1,6 +1,8 @@
 "use client";
 
-import FaceDemo from "./face-demo";
+import dynamic from "next/dynamic";
+
+const FaceDemo = dynamic(() => import("./face-demo"), { ssr: false });
 
 export default function FacePage() {
   return (
@@ -9,7 +11,7 @@ export default function FacePage() {
         <p className="tag">Local-only AI</p>
         <h1 className="title">Face Register / Check in</h1>
         <p className="subtitle">
-          BlazeFace 找脸 + MobileNet embedding + IndexedDB。
+          SCRFD 找脸 + ArcFace embedding + IndexedDB。
         </p>
       </section>
       <section className="panel">

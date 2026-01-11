@@ -1,0 +1,32 @@
+{
+  "appId": "com.pake.faceattendance",
+  "directories": {
+    "buildResources": "resources"
+  },
+  "files": [
+    "assets/**/*",
+    "build/**/*",
+    "capacitor.config.*",
+    "app/**/*"
+  ],
+  "publish": {
+    "provider": "github"
+  },
+  "nsis": {
+    "allowElevation": true,
+    "oneClick": false,
+    "allowToChangeInstallationDirectory": true
+  },
+  "win": {
+    "target": "nsis",
+    "icon": "assets/appIcon.ico"
+  },
+  "mac": {
+    "category": "public.app-category.productivity",
+    "target": "dmg",
+    "extendInfo": {
+      "NSCameraUsageDescription": "需要使用摄像头进行人脸考勤。",
+      "NSMicrophoneUsageDescription": "需要使用麦克风进行录制（如需）。"
+    }
+  }
+}

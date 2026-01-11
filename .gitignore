@@ -10,3 +10,37 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
+.pnpm-store/
+public/models/arcface/
+public/models/scrfd/
+public/onnxruntime/
+
+# onnx models
+out/models/
+out/onnxruntime/
+
+# optional
+*.onnx
+*.wasm
+
+# MediaPipe Models
+public/mediapipe/
+
+# Next.js Static Export
+out/
+
+# TypeScript
+*.tsbuildinfo
+
+# AI/Temp
+.gemini-clipboard/
+
+# Sub-projects
+electron/node_modules/
+electron/dist/
+electron/build/
+electron/app/
+
+android/.gradle/
+android/app/build/
+android/capacitor-cordova-android-plugins/
