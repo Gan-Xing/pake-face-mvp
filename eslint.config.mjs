@@ -7,6 +7,8 @@ export default [
       "**/node_modules/**",
       "**/.next/**",
       "**/out/**",
+      "**/android/**/build/**",
+      "**/android/**/intermediates/**",
       "**/electron/build/**",
       "**/electron/dist/**",
       "**/electron/app/**",

@@ -22,6 +22,8 @@ export function useFaceDetection({ videoRef, canvasRef, addLog, setStatus, setRe
     const detectionRef = useRef<any | null>(null);
     const meshRef = useRef<any | null>(null);
     const detectionResolveRef = useRef<((results: any) => void) | null>(null);
+    const meshQueueRef = useRef<Promise<any>>(Promise.resolve(null));
+    const meshBusyRef = useRef(false);
 
     useEffect(() => {
         let mounted = true;
@@ -70,6 +72,34 @@ export function useFaceDetection({ videoRef, canvasRef, addLog, setStatus, setRe
         return () => { mounted = false; };
     }, [addLog, setReady, setStatus]);
 
+    const enqueueMesh = (image: CanvasImageSource, dropIfBusy: boolean) => {
+        if (!meshRef.current) return Promise.resolve(null);
+        if (dropIfBusy && meshBusyRef.current) return Promise.resolve(null);
+
+        const run = () => new Promise<any>((resolve) => {
+            detectionResolveRef.current = (results: any) => {
+                detectionResolveRef.current = null;
+                resolve(results ?? null);
+            };
+            try {
+                meshRef.current.send({ image });
+            } catch (e) {
+                detectionResolveRef.current = null;
+                console.error("Detection Send Error:", e);
+                resolve(null);
+            }
+        });
+
+        const task = meshQueueRef.current.then(() => {
+            meshBusyRef.current = true;
+            return run().finally(() => {
+                meshBusyRef.current = false;
+            });
+        });
+        meshQueueRef.current = task.catch(() => null);
+        return task;
+    };
+
     const detectFace = async () => {
         if (!meshRef.current || !videoRef.current) return null;
         
@@ -78,44 +108,33 @@ export function useFaceDetection({ videoRef, canvasRef, addLog, setStatus, setRe
             return null;
         }
 
-        return new Promise<any>((resolve) => {
-            // Overwrite the resolver each frame
-            detectionResolveRef.current = (results: any) => {
-                if (!results.multiFaceLandmarks || results.multiFaceLandmarks.length === 0) {
-                    resolve(null);
-                    return;
-                }
-                const landmarks = results.multiFaceLandmarks[0];
-                const w = video.videoWidth;
-                const h = video.videoHeight;
+        const results = await enqueueMesh(video, true);
+        if (!results || !results.multiFaceLandmarks || results.multiFaceLandmarks.length === 0) {
+            return null;
+        }
 
-                // Calc Box
-                let minX = 1, minY = 1, maxX = 0, maxY = 0;
-                landmarks.forEach((p: any) => {
-                    if(p.x < minX) minX = p.x;
-                    if(p.y < minY) minY = p.y;
-                    if(p.x > maxX) maxX = p.x;
-                    if(p.y > maxY) maxY = p.y;
-                });
-                const box: FaceBox = {
-                    xMin: minX * w,
-                    yMin: minY * h,
-                    width: (maxX - minX) * w,
-                    height: (maxY - minY) * h
-                };
+        const landmarks = results.multiFaceLandmarks[0];
+        const w = video.videoWidth;
+        const h = video.videoHeight;
 
-                const ear = calculateEyeAspectRatio(landmarks);
-
-                resolve({ box, landmarks, ear, score: 0.95 });
-            };
-
-            try {
-                meshRef.current.send({ image: video });
-            } catch (e) {
-                console.error("Detection Send Error:", e);
-                resolve(null);
-            }
+        // Calc Box
+        let minX = 1, minY = 1, maxX = 0, maxY = 0;
+        landmarks.forEach((p: any) => {
+            if(p.x < minX) minX = p.x;
+            if(p.y < minY) minY = p.y;
+            if(p.x > maxX) maxX = p.x;
+            if(p.y > maxY) maxY = p.y;
         });
+        const box: FaceBox = {
+            xMin: minX * w,
+            yMin: minY * h,
+            width: (maxX - minX) * w,
+            height: (maxY - minY) * h
+        };
+
+        const ear = calculateEyeAspectRatio(landmarks);
+
+        return { box, landmarks, ear, score: 0.95 };
     };
 
     const getEmbedding = async (): Promise<{ embedding: number[], photo: string } | null> => {
@@ -135,10 +154,8 @@ export function useFaceDetection({ videoRef, canvasRef, addLog, setStatus, setRe
                  resolve(null);
                  return;
             }
-            // ... existing resolver logic ...
-            const prevResolver = detectionResolveRef.current;
-            detectionResolveRef.current = async (results: any) => {
-                if (!results.multiFaceLandmarks || results.multiFaceLandmarks.length === 0) {
+            enqueueMesh(canvas, false).then(async (results) => {
+                if (!results || !results.multiFaceLandmarks || results.multiFaceLandmarks.length === 0) {
                     resolve(null);
                     return;
                 }
@@ -179,9 +196,7 @@ export function useFaceDetection({ videoRef, canvasRef, addLog, setStatus, setRe
                 const output = await window.faceNative!.runArcFace(input);
                 const floatData = new Float32Array(output.data);
                 resolve({ embedding: l2Normalize(floatData), photo });
-            };
-            
-            meshRef.current.send({ image: canvas });
+            }).catch(() => resolve(null));
         });
     };
 

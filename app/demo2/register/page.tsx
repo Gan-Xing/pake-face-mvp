@@ -55,6 +55,8 @@ function RegisterPage() {
   const router = useRouter();
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const rafIdRef = useRef<number | null>(null);
   const detectionRef = useRef<any | null>(null);
   const meshRef = useRef<any | null>(null);
   const detectionResolveRef = useRef<((results: any) => void) | null>(null);
@@ -71,6 +73,20 @@ function RegisterPage() {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
   // Init
+  const stopCamera = () => {
+    if (rafIdRef.current !== null) {
+      cancelAnimationFrame(rafIdRef.current);
+      rafIdRef.current = null;
+    }
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
+    }
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
+  };
+
   useEffect(() => {
     let mounted = true;
     
@@ -123,7 +139,10 @@ function RegisterPage() {
       }
     };
     init();
-    return () => { mounted = false; };
+    return () => {
+      mounted = false;
+      stopCamera();
+    };
   }, []);
 
   const detectFace = async (video: HTMLVideoElement) => {
@@ -213,11 +232,13 @@ function RegisterPage() {
   const startCamera = async () => {
     if (!videoRef.current) return;
     try {
+      stopCamera();
       const constraints = {
         video: selectedDeviceId ? { deviceId: { exact: selectedDeviceId }, width: 640, height: 480 } : { width: 640, height: 480 },
         audio: false,
       };
       const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      streamRef.current = stream;
       videoRef.current.srcObject = stream;
       await videoRef.current.play();
       setStatus("请正对摄像头，尝试不同角度拍摄");
@@ -226,7 +247,7 @@ function RegisterPage() {
         if (!videoRef.current || videoRef.current.paused || videoRef.current.ended) return;
         const results = await detectFace(videoRef.current);
         drawResults(results);
-        requestAnimationFrame(loop);
+        rafIdRef.current = requestAnimationFrame(loop);
       };
       loop();
     } catch (err) {
@@ -333,9 +354,7 @@ function RegisterPage() {
         };
 
         setTempPhotos(prev => [newPhoto, ...prev]);
-        if (selectedIds.length < 10) {
-            setSelectedIds(prev => [...prev, newPhoto.id]);
-        }
+        setSelectedIds(prev => (prev.length < 10 ? [...prev, newPhoto.id] : prev));
         setStatus("已抓拍，请继续");
     } catch (e) {
         console.error(e);
@@ -421,7 +440,7 @@ function RegisterPage() {
                     };
                     
                     setTempPhotos(prev => [newPhoto, ...prev]);
-                    if (selectedIds.length < 10) setSelectedIds(prev => [...prev, newPhoto.id]);
+                    setSelectedIds(prev => (prev.length < 10 ? [...prev, newPhoto.id] : prev));
                     successCount++;
                     resolve();
                 };

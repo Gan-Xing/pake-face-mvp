@@ -13,6 +13,13 @@ export function useCamera({ videoRef, addLog, setStatus }: UseCameraProps) {
   
   // Track if we are currently mounting/unmounting to avoid unsafe state updates
   const isMountedRef = useRef(true);
+  const stopStream = useCallback(() => {
+    if (videoRef.current?.srcObject) {
+      const oldStream = videoRef.current.srcObject as MediaStream;
+      oldStream.getTracks().forEach(t => t.stop());
+      videoRef.current.srcObject = null;
+    }
+  }, [videoRef]);
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -24,18 +31,17 @@ export function useCamera({ videoRef, addLog, setStatus }: UseCameraProps) {
             if (videoInputs.length > 0) setSelectedDeviceId(videoInputs[0].deviceId);
         }
     });
-    return () => { isMountedRef.current = false; };
-  }, [addLog]);
+    return () => {
+      isMountedRef.current = false;
+      stopStream();
+    };
+  }, [addLog, stopStream]);
 
   const startCamera = useCallback(async () => {
     if (!videoRef.current) return;
     
     // 1. Cleanup old stream
-    if (videoRef.current.srcObject) {
-       const oldStream = videoRef.current.srcObject as MediaStream;
-       oldStream.getTracks().forEach(t => t.stop());
-       videoRef.current.srcObject = null;
-    }
+    stopStream();
 
     addLog(`Starting camera...`);
     
