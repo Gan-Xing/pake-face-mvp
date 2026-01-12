@@ -11,6 +11,12 @@ import {
   renameEmbedding,
 } from "../../lib/face/storage";
 import { cosineSimilarity } from "../../lib/face/similarity";
+import {
+  getArcFacePreprocessNative,
+  initFaceNative,
+  isFaceNativeAvailable,
+  runArcFaceNative,
+} from "../../lib/face/native-bridge";
 
 // Constants
 const EMBEDDING_SIZE = 512;
@@ -98,21 +104,6 @@ type DetectedFace = {
   landmarks?: number[][];
   eyeAspectRatio?: number;
 };
-
-type NativeRawTensor = {
-  data: ArrayBuffer;
-  dims: number[];
-};
-
-declare global {
-  interface Window {
-    faceNative?: {
-      init: () => Promise<void>;
-      runArcFace: (input: Float32Array) => Promise<NativeRawTensor>;
-      getArcFacePreprocess?: () => Promise<PreprocessId | null>;
-    };
-  }
-}
 
 type CaptureStage = "capture" | "compute";
 type CaptureProgress = {
@@ -708,7 +699,7 @@ export default function FaceDemo() {
 
   const initModels = useCallback(async () => {
     setStatus("初始化模型中…");
-    if (!window.faceNative?.init) {
+    if (!isFaceNativeAvailable()) {
       setReady(false);
       setStatus("未检测到桌面推理环境");
       return;
@@ -743,15 +734,13 @@ export default function FaceDemo() {
       });
       faceMeshRef.current = mesh;
 
-      await window.faceNative.init();
-      if (window.faceNative.getArcFacePreprocess) {
-        const detected = await window.faceNative.getArcFacePreprocess();
-        if (detected) {
-          setPreprocessMode(detected);
-          const label =
-            PREPROCESS_OPTIONS.find((option) => option.id === detected)?.label ?? detected;
-          setPreprocessDetected(`自动检测：${label}`);
-        }
+      await initFaceNative();
+      const detected = await getArcFacePreprocessNative();
+      if (detected) {
+        setPreprocessMode(detected as PreprocessId);
+        const label =
+          PREPROCESS_OPTIONS.find((option) => option.id === detected)?.label ?? detected;
+        setPreprocessDetected(`自动检测：${label}`);
       }
       setReady(true);
       setStatus("模型就绪，可以注册 / 打卡");
@@ -1094,7 +1083,7 @@ export default function FaceDemo() {
       onProgress?: (progress: CaptureProgress) => void,
       options?: { skipQualityCheck?: boolean }
     ) => {
-      if (!window.faceNative?.runArcFace) throw new Error("模型未准备好");
+      if (!isFaceNativeAvailable()) throw new Error("模型未准备好");
       let firstPhoto: string | undefined;
       let firstAligned: string | undefined;
       let firstRawFace: string | undefined;
@@ -1125,7 +1114,7 @@ export default function FaceDemo() {
 
       for (let i = 0; i < captured.length; i += 1) {
         onProgress?.({ index: i + 1, total: captured.length, stage: "compute" });
-        const outputRaw = await window.faceNative.runArcFace(captured[i].input);
+        const outputRaw = await runArcFaceNative(captured[i].input);
         const outputData = new Float32Array(outputRaw.data);
         const embedding = l2Normalize(outputData);
         for (let j = 0; j < size; j += 1) {
@@ -1149,11 +1138,11 @@ export default function FaceDemo() {
       aligned: HTMLCanvasElement,
       onStats?: (values: Float32Array) => void
     ): Promise<number[]> => {
-      if (!window.faceNative?.runArcFace) {
+      if (!isFaceNativeAvailable()) {
         throw new Error("模型未准备好");
       }
       const input = buildInputFromCanvas(aligned);
-      const outputRaw = await window.faceNative.runArcFace(input);
+      const outputRaw = await runArcFaceNative(input);
       const outputData = new Float32Array(outputRaw.data);
       if (outputData.length < EMBEDDING_SIZE) {
         throw new Error("Embedding 维度不正确");
@@ -1167,7 +1156,7 @@ export default function FaceDemo() {
 
   const getEmbeddingFromImage = useCallback(
     async (photoDataUrl: string): Promise<number[] | null> => {
-      if (!window.faceNative?.runArcFace) {
+      if (!isFaceNativeAvailable()) {
         throw new Error("模型未准备好");
       }
       const image = await loadImageFromDataUrl(photoDataUrl);
@@ -1340,7 +1329,7 @@ export default function FaceDemo() {
   
   const getEmbeddingFromImageWithDiagnostics = useCallback(async (photoDataUrl: string, label: string) => {
       // Re-implementing simplified logic for registration
-      if (!window.faceNative?.runArcFace) throw new Error("模型未准备好");
+      if (!isFaceNativeAvailable()) throw new Error("模型未准备好");
       const image = await loadImageFromDataUrl(photoDataUrl);
       const frameCanvas = document.createElement("canvas");
       frameCanvas.width = image.width;

@@ -8,6 +8,11 @@ import {
   getArcFaceLandmarksFromMesh,
   calculateEyeAspectRatio,
 } from "../../../lib/face/utils";
+import {
+  initFaceNative,
+  isFaceNativeAvailable,
+  runArcFaceNative,
+} from "../../../lib/face/native-bridge";
 import { FACE_DETECTION_MODEL_URL, FACE_MESH_MODEL_URL, buildInputFromCanvas } from "../utils";
 
 interface UseFaceDetectionProps {
@@ -53,9 +58,9 @@ export function useFaceDetection({ videoRef, canvasRef, addLog, setStatus, setRe
                 });
                 meshRef.current = mesh;
 
-                if (window.faceNative) {
+                if (isFaceNativeAvailable()) {
                     addLog("[Demo2] Init FaceNative...");
-                    await window.faceNative.init();
+                    await initFaceNative();
                 }
                 
                 if(mounted) {
@@ -138,7 +143,7 @@ export function useFaceDetection({ videoRef, canvasRef, addLog, setStatus, setRe
     };
 
     const getEmbedding = async (): Promise<{ embedding: number[], photo: string } | null> => {
-        if (!videoRef.current || !window.faceNative || !meshRef.current) return null;
+        if (!videoRef.current || !meshRef.current || !isFaceNativeAvailable()) return null;
         
         const canvas = document.createElement("canvas");
         canvas.width = videoRef.current.videoWidth;
@@ -193,7 +198,7 @@ export function useFaceDetection({ videoRef, canvasRef, addLog, setStatus, setRe
                 }
 
                 const input = buildInputFromCanvas(alignedCanvas);
-                const output = await window.faceNative!.runArcFace(input);
+                const output = await runArcFaceNative(input);
                 const floatData = new Float32Array(output.data);
                 resolve({ embedding: l2Normalize(floatData), photo });
             }).catch(() => resolve(null));

@@ -15,6 +15,7 @@ import {
   getQualityHint,
   DetectedFace,
 } from "../../../lib/face/utils";
+import { initFaceNative, isFaceNativeAvailable, runArcFaceNative } from "../../../lib/face/native-bridge";
 import styles from "./register.module.css";
 
 // Constants
@@ -123,9 +124,9 @@ function RegisterPage() {
         mesh.setOptions({ maxNumFaces: 1, minDetectionConfidence: 0.5 });
         meshRef.current = mesh;
 
-        if (window.faceNative) {
+        if (isFaceNativeAvailable()) {
           console.log("Init FaceNative...");
-          await window.faceNative.init();
+          await initFaceNative();
         }
 
         if (mounted) {
@@ -262,7 +263,7 @@ function RegisterPage() {
   }, [selectedDeviceId, isReady]);
 
   const extractEmbedding = async (): Promise<{ emb: number[], photo: string } | null> => {
-    if (!videoRef.current || !window.faceNative || !meshRef.current) {
+    if (!videoRef.current || !meshRef.current || !isFaceNativeAvailable()) {
         alert("模型或环境未就绪");
         return null;
     }
@@ -315,7 +316,7 @@ function RegisterPage() {
 
             try {
                 const input = buildInputFromCanvas(alignedCanvas);
-                const output = await window.faceNative!.runArcFace(input);
+                const output = await runArcFaceNative(input);
                 const floatData = new Float32Array(output.data);
                 resolve({ emb: l2Normalize(floatData), photo: photoUrl });
             } catch(e) {
@@ -364,7 +365,7 @@ function RegisterPage() {
 
   const handleUpload = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
-    if (!meshRef.current || !window.faceNative) {
+    if (!meshRef.current || !isFaceNativeAvailable()) {
         alert("模型尚未加载完成，请稍候");
         return;
     }
@@ -429,7 +430,7 @@ function RegisterPage() {
                     }
 
                     const input = buildInputFromCanvas(alignedCanvas);
-                    const output = await window.faceNative!.runArcFace(input);
+                    const output = await runArcFaceNative(input);
                     const floatData = new Float32Array(output.data);
                     
                     const newPhoto: TempPhoto = {
