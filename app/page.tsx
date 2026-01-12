@@ -6,7 +6,7 @@ export default function Home() {
       <div className="panel" style={{ textAlign: "center", maxWidth: "600px" }}>
         <h1 className="title">Face Attendance App</h1>
         <p className="subtitle" style={{ marginBottom: "40px" }}>
-          基于 Electron + MediaPipe + ArcFace 的离线人脸识别系统
+          基于 Electron + RetinaFace + ArcFace 的离线人脸识别系统
         </p>
 
         <div className="grid" style={{ gridTemplateColumns: "1fr 1fr" }}>

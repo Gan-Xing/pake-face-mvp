@@ -7,6 +7,7 @@ import { join } from 'path';
 
 import { ElectronCapacitorApp, setupContentSecurityPolicy, setupReloadWatcher } from './setup';
 import { detectArcFacePreprocess, initNativeFace, runArcFace } from './face/native-face';
+import { initRetinaFace, runRetinaFace } from './face/retinaface';
 
 // Define our menu templates (these are optional)
 const trayMenuTemplate: (MenuItemConstructorOptions | MenuItem)[] = [new MenuItem({ label: 'Quit App', role: 'quit' })];
@@ -37,10 +38,16 @@ if (electronIsDev) {
 
 ipcMain.handle('face-init', async () => {
   await initNativeFace();
+  try {
+    await initRetinaFace();
+  } catch (error) {
+    console.warn('[FaceNative] RetinaFace init failed:', error);
+  }
 });
 
 ipcMain.handle('face-arcface', async (_event, payload) => runArcFace(payload));
 ipcMain.handle('face-arcface-preprocess', async () => detectArcFacePreprocess());
+ipcMain.handle('face-detect', async (_event, payload) => runRetinaFace(payload));
 
 // Run Application
 (async () => {

@@ -15,12 +15,13 @@ interface ControlPanelProps {
     isLivenessEnabled: boolean;
     setLivenessEnabled: (val: boolean) => void;
     isAlive: boolean;
+    supportsLiveness: boolean;
 }
 
 export function ControlPanel({
     devices, selectedDeviceId, setSelectedDeviceId, startCamera, isReady,
     autoMode, setAutoMode, handleCheck, checkResult, topMatches,
-    isLivenessEnabled, setLivenessEnabled, isAlive
+    isLivenessEnabled, setLivenessEnabled, isAlive, supportsLiveness
 }: ControlPanelProps) {
     return (
         <div className={styles.card}>
@@ -55,9 +56,10 @@ export function ControlPanel({
                         type="checkbox" 
                         checked={isLivenessEnabled} 
                         onChange={e => setLivenessEnabled(e.target.checked)} 
-                        style={{ width: 16, height: 16, cursor: 'pointer' }}
+                        disabled={!supportsLiveness}
+                        style={{ width: 16, height: 16, cursor: supportsLiveness ? 'pointer' : 'not-allowed' }}
                     />
-                    活体检测 (眨眼)
+                    活体检测 (眨眼){supportsLiveness ? "" : " - 当前检测不支持"}
                 </label>
                 {isLivenessEnabled && (
                     <span className={styles.tag} style={{ 

@@ -47,7 +47,13 @@ function FaceDemoV2() {
 
   // Hooks
   const { devices, selectedDeviceId, setSelectedDeviceId, startCamera, isStreamActive } = useCamera({ videoRef, addLog, setStatus });
-  const { detectFace, getEmbedding, drawResults } = useFaceDetection({ videoRef, canvasRef, addLog, setStatus, setReady });
+  const { detectFace, getEmbedding, drawResults, supportsLiveness } = useFaceDetection({ videoRef, canvasRef, addLog, setStatus, setReady });
+
+  useEffect(() => {
+    if (!supportsLiveness) {
+      setLivenessEnabled(false);
+    }
+  }, [supportsLiveness]);
   
   // Auto Mode State
   const [autoMode, setAutoMode] = useState(false);
@@ -346,6 +352,7 @@ function FaceDemoV2() {
                 isLivenessEnabled={isLivenessEnabled}
                 setLivenessEnabled={setLivenessEnabled}
                 isAlive={isAlive}
+                supportsLiveness={supportsLiveness}
              />
           </div>
 

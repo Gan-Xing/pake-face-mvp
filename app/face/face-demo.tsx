@@ -15,8 +15,11 @@ import {
   getArcFacePreprocessNative,
   initFaceNative,
   isFaceNativeAvailable,
+  isFaceNativeDetectionAvailable,
   runArcFaceNative,
+  detectFaceNative,
 } from "../../lib/face/native-bridge";
+import { buildRetinaFaceInput } from "../../lib/face/retinaface-input";
 
 // Constants
 const EMBEDDING_SIZE = 512;
@@ -605,6 +608,8 @@ export default function FaceDemo() {
   const [earHistory, setEarHistory] = useState<string[]>([]);
   const [lastBlinkAt, setLastBlinkAt] = useState<number>(0);
   const [blinkRequired, setBlinkRequired] = useState(true);
+  const [blinkSupported, setBlinkSupported] = useState(true);
+  const [nativeDetectionEnabled, setNativeDetectionEnabled] = useState(false);
 
   // Refs
   const autoBusyRef = useRef(false);
@@ -706,33 +711,40 @@ export default function FaceDemo() {
     }
 
     try {
-      const detector = new FaceDetection({
-        locateFile: (file) => `${FACE_DETECTION_MODEL_URL}/${file}`,
-      });
-      detector.setOptions({
-        model: "full",
-        minDetectionConfidence: 0.5,
-      });
-      detector.onResults((results) => {
-        faceDetectionResolveRef.current?.(results);
-        faceDetectionResolveRef.current = null;
-      });
-      faceDetectionRef.current = detector;
+      const nativeDetectionAvailable = isFaceNativeDetectionAvailable();
+      setNativeDetectionEnabled(nativeDetectionAvailable);
+      setBlinkSupported(!nativeDetectionAvailable);
+      if (nativeDetectionAvailable) {
+        setBlinkRequired(false);
+      } else {
+        const detector = new FaceDetection({
+          locateFile: (file) => `${FACE_DETECTION_MODEL_URL}/${file}`,
+        });
+        detector.setOptions({
+          model: "full",
+          minDetectionConfidence: 0.5,
+        });
+        detector.onResults((results) => {
+          faceDetectionResolveRef.current?.(results);
+          faceDetectionResolveRef.current = null;
+        });
+        faceDetectionRef.current = detector;
 
-      const mesh = new FaceMesh({
-        locateFile: (file) => `${FACE_MESH_MODEL_URL}/${file}`,
-      });
-      mesh.setOptions({
-        maxNumFaces: 1,
-        refineLandmarks: true,
-        minDetectionConfidence: 0.5,
-        minTrackingConfidence: 0.5,
-      });
-      mesh.onResults((results) => {
-        faceMeshResolveRef.current?.(results);
-        faceMeshResolveRef.current = null;
-      });
-      faceMeshRef.current = mesh;
+        const mesh = new FaceMesh({
+          locateFile: (file) => `${FACE_MESH_MODEL_URL}/${file}`,
+        });
+        mesh.setOptions({
+          maxNumFaces: 1,
+          refineLandmarks: true,
+          minDetectionConfidence: 0.5,
+          minTrackingConfidence: 0.5,
+        });
+        mesh.onResults((results) => {
+          faceMeshResolveRef.current?.(results);
+          faceMeshResolveRef.current = null;
+        });
+        faceMeshRef.current = mesh;
+      }
 
       await initFaceNative();
       const detected = await getArcFacePreprocessNative();
@@ -771,6 +783,10 @@ export default function FaceDemo() {
           setSecondBestMargin(parsed);
         }
       }
+      if (!blinkSupported) {
+        setBlinkRequired(false);
+        return;
+      }
       const storedBlink = localStorage.getItem(STORAGE_KEYS.blinkRequired);
       if (storedBlink !== null) {
         setBlinkRequired(storedBlink === "true");
@@ -778,7 +794,7 @@ export default function FaceDemo() {
     } catch {
       // ignore
     }
-  }, []);
+  }, [blinkSupported]);
 
   useEffect(() => {
     try {
@@ -882,23 +898,47 @@ export default function FaceDemo() {
     []
   );
 
+  const detectFaceNativeFromSource = useCallback(
+    async (
+      source: CanvasImageSource,
+      width: number,
+      height: number
+    ): Promise<DetectedFace | null> => {
+      const input = buildRetinaFaceInput(source, width, height);
+      const result = await detectFaceNative(input);
+      if (!result) return null;
+      return {
+        score: result.score,
+        box: result.box,
+        landmarks: result.landmarks,
+      };
+    },
+    [detectFaceNative]
+  );
+
   const detectFaceFromVideo = useCallback(async (): Promise<DetectedFace | null> => {
     const video = videoRef.current;
     if (!video) throw new Error("模型未准备好");
     if (video.videoWidth === 0 || video.videoHeight === 0) return null;
 
+    if (nativeDetectionEnabled) {
+      return detectFaceNativeFromSource(video, video.videoWidth, video.videoHeight);
+    }
     const meshResults = await runFaceMesh(video);
     const detectionResults = await runFaceDetection(video);
     return buildFaceFromResults(detectionResults, meshResults, video.videoWidth, video.videoHeight);
-  }, [buildFaceFromResults, runFaceDetection, runFaceMesh]);
+  }, [buildFaceFromResults, detectFaceNativeFromSource, nativeDetectionEnabled, runFaceDetection, runFaceMesh]);
 
   const detectFaceFromImage = useCallback(
     async (image: HTMLImageElement): Promise<DetectedFace | null> => {
+      if (nativeDetectionEnabled) {
+        return detectFaceNativeFromSource(image, image.width, image.height);
+      }
       const meshResults = await runFaceMesh(image);
       const detectionResults = await runFaceDetection(image);
       return buildFaceFromResults(detectionResults, meshResults, image.width, image.height);
     },
-    [buildFaceFromResults, runFaceDetection, runFaceMesh]
+    [buildFaceFromResults, detectFaceNativeFromSource, nativeDetectionEnabled, runFaceDetection, runFaceMesh]
   );
 
   useEffect(() => {
@@ -1458,8 +1498,15 @@ export default function FaceDemo() {
             {videoDevices.map(d => <option key={d.deviceId} value={d.deviceId}>{d.label}</option>)}
           </select>
           <div className="row" style={{ alignItems: 'center' }}>
-             <input type="checkbox" checked={blinkRequired} onChange={e => setBlinkRequired(e.target.checked)} />
-             <span>活体检测 (眨眼)</span>
+             <input
+               type="checkbox"
+               checked={blinkRequired}
+               onChange={e => setBlinkRequired(e.target.checked)}
+               disabled={!blinkSupported}
+             />
+             <span>
+               活体检测 (眨眼){!blinkSupported ? " - 当前检测模式不支持" : ""}
+             </span>
           </div>
         </div>
 

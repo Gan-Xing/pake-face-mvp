@@ -15,7 +15,14 @@ import {
   getQualityHint,
   DetectedFace,
 } from "../../../lib/face/utils";
-import { initFaceNative, isFaceNativeAvailable, runArcFaceNative } from "../../../lib/face/native-bridge";
+import {
+  detectFaceNative,
+  initFaceNative,
+  isFaceNativeAvailable,
+  isFaceNativeDetectionAvailable,
+  runArcFaceNative,
+} from "../../../lib/face/native-bridge";
+import { buildRetinaFaceInput } from "../../../lib/face/retinaface-input";
 import styles from "./register.module.css";
 
 // Constants
@@ -61,6 +68,7 @@ function RegisterPage() {
   const detectionRef = useRef<any | null>(null);
   const meshRef = useRef<any | null>(null);
   const detectionResolveRef = useRef<((results: any) => void) | null>(null);
+  const nativeDetectionAvailable = isFaceNativeDetectionAvailable();
 
   const [status, setStatus] = useState("初始化中...");
   const [isReady, setReady] = useState(false);
@@ -101,28 +109,30 @@ function RegisterPage() {
 
     const init = async () => {
       try {
-        const { FaceDetection } = require("@mediapipe/face_detection");
-        const { FaceMesh } = require("@mediapipe/face_mesh");
-
         console.log("Loading FaceDetection...");
-        const detector = new FaceDetection({
-          locateFile: (file: string) => `${FACE_DETECTION_MODEL_URL}/${file}`,
-        });
-        detector.setOptions({ model: "short", minDetectionConfidence: 0.5 });
-        detector.onResults((results: any) => {
-            if (detectionResolveRef.current) {
-                detectionResolveRef.current(results);
-                detectionResolveRef.current = null;
-            }
-        });
-        detectionRef.current = detector;
+        if (!nativeDetectionAvailable) {
+          const { FaceDetection } = require("@mediapipe/face_detection");
+          const { FaceMesh } = require("@mediapipe/face_mesh");
 
-        console.log("Loading FaceMesh...");
-        const mesh = new FaceMesh({
-          locateFile: (file: string) => `${FACE_MESH_MODEL_URL}/${file}`,
-        });
-        mesh.setOptions({ maxNumFaces: 1, minDetectionConfidence: 0.5 });
-        meshRef.current = mesh;
+          const detector = new FaceDetection({
+            locateFile: (file: string) => `${FACE_DETECTION_MODEL_URL}/${file}`,
+          });
+          detector.setOptions({ model: "short", minDetectionConfidence: 0.5 });
+          detector.onResults((results: any) => {
+              if (detectionResolveRef.current) {
+                  detectionResolveRef.current(results);
+                  detectionResolveRef.current = null;
+              }
+          });
+          detectionRef.current = detector;
+
+          console.log("Loading FaceMesh...");
+          const mesh = new FaceMesh({
+            locateFile: (file: string) => `${FACE_MESH_MODEL_URL}/${file}`,
+          });
+          mesh.setOptions({ maxNumFaces: 1, minDetectionConfidence: 0.5 });
+          meshRef.current = mesh;
+        }
 
         if (isFaceNativeAvailable()) {
           console.log("Init FaceNative...");
@@ -146,12 +156,26 @@ function RegisterPage() {
     };
   }, []);
 
+  const detectFaceNativeFromSource = async (
+    source: CanvasImageSource,
+    width: number,
+    height: number
+  ): Promise<DetectedFace | null> => {
+    const input = buildRetinaFaceInput(source, width, height);
+    const result = await detectFaceNative(input);
+    if (!result) return null;
+    return { score: result.score, box: result.box, landmarks: result.landmarks };
+  };
+
   const detectFace = async (video: HTMLVideoElement) => {
-      if (!detectionRef.current) return null;
       // Safety check for video
       if (video.readyState < 2 || video.videoWidth === 0 || video.videoHeight === 0 || video.paused) {
           return null;
       }
+      if (nativeDetectionAvailable) {
+          return detectFaceNativeFromSource(video, video.videoWidth, video.videoHeight);
+      }
+      if (!detectionRef.current) return null;
       return new Promise<any>((resolve) => {
           detectionResolveRef.current = resolve;
           detectionRef.current.send({ image: video });
@@ -172,7 +196,23 @@ function RegisterPage() {
     
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    if (results && results.detections && results.detections.length > 0) {
+    if (results && results.box) {
+      const face = results as DetectedFace;
+      const hint = getQualityHint(face, canvas.width, canvas.height);
+      const widthRatio = face.box.width / canvas.width;
+      const centerX = face.box.xMin + face.box.width / 2;
+      const centerY = face.box.yMin + face.box.height / 2;
+      const offsetX = Math.abs(centerX / canvas.width - 0.5);
+      const offsetY = Math.abs(centerY / canvas.height - 0.5);
+      if (hint) {
+          setQualityHint(`${hint} [S:${face.score.toFixed(2)} W:${widthRatio.toFixed(2)} X:${offsetX.toFixed(2)} Y:${offsetY.toFixed(2)}]`);
+      } else {
+          setQualityHint(null);
+      }
+      ctx.strokeStyle = hint ? "#fbbf24" : "rgba(47, 111, 237, 0.9)";
+      ctx.lineWidth = 3;
+      ctx.strokeRect(face.box.xMin, face.box.yMin, face.box.width, face.box.height);
+    } else if (results && results.detections && results.detections.length > 0) {
       const det = results.detections[0];
       const w = canvas.width;
       const h = canvas.height;
@@ -263,7 +303,7 @@ function RegisterPage() {
   }, [selectedDeviceId, isReady]);
 
   const extractEmbedding = async (): Promise<{ emb: number[], photo: string } | null> => {
-    if (!videoRef.current || !meshRef.current || !isFaceNativeAvailable()) {
+    if (!videoRef.current || !isFaceNativeAvailable()) {
         alert("模型或环境未就绪");
         return null;
     }
@@ -277,8 +317,23 @@ function RegisterPage() {
 
     const photoUrl = canvas.toDataURL("image/jpeg", 0.85);
 
+    if (nativeDetectionAvailable) {
+        const detection = await detectFaceNativeFromSource(canvas, canvas.width, canvas.height);
+        if (!detection) return null;
+        const safeBox = clampBox(detection.box, canvas.width, canvas.height);
+        const alignedCanvas = alignFaceToTemplate(canvas, canvas.width, canvas.height, safeBox, detection.landmarks);
+        const input = buildInputFromCanvas(alignedCanvas);
+        const output = await runArcFaceNative(input);
+        const floatData = new Float32Array(output.data);
+        return { emb: l2Normalize(floatData), photo: photoUrl };
+    }
+
     return new Promise((resolve) => {
-        meshRef.current!.onResults(async (results: any) => {
+        if (!meshRef.current) {
+            resolve(null);
+            return;
+        }
+        meshRef.current.onResults(async (results: any) => {
             if (!results.multiFaceLandmarks || results.multiFaceLandmarks.length === 0) {
                 resolve(null);
                 return;
@@ -324,7 +379,7 @@ function RegisterPage() {
                 resolve(null);
             }
         });
-        meshRef.current!.send({ image: canvas });
+        meshRef.current.send({ image: canvas });
     });
   };
 
@@ -365,7 +420,7 @@ function RegisterPage() {
 
   const handleUpload = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
-    if (!meshRef.current || !isFaceNativeAvailable()) {
+    if (!isFaceNativeAvailable()) {
         alert("模型尚未加载完成，请稍候");
         return;
     }
@@ -387,7 +442,42 @@ function RegisterPage() {
             img.src = url;
             await new Promise((r) => (img.onload = r));
 
+            if (nativeDetectionAvailable) {
+                const detection = await detectFaceNativeFromSource(img, img.width, img.height);
+                if (!detection) {
+                    console.warn(`Upload skipped: No face in ${file.name}`);
+                    failCount++;
+                    continue;
+                }
+                const canvas = document.createElement('canvas');
+                canvas.width = img.width;
+                canvas.height = img.height;
+                const ctx = canvas.getContext('2d');
+                ctx?.drawImage(img, 0, 0);
+                const safeBox = clampBox(detection.box, img.width, img.height);
+                const alignedCanvas = alignFaceToTemplate(canvas, img.width, img.height, safeBox, detection.landmarks);
+                const input = buildInputFromCanvas(alignedCanvas);
+                const output = await runArcFaceNative(input);
+                const floatData = new Float32Array(output.data);
+                
+                const newPhoto: TempPhoto = {
+                  id: Date.now().toString() + Math.random(),
+                  url: url,
+                  embedding: l2Normalize(floatData),
+                  timestamp: Date.now()
+                };
+                
+                setTempPhotos(prev => [newPhoto, ...prev]);
+                setSelectedIds(prev => (prev.length < 10 ? [...prev, newPhoto.id] : prev));
+                successCount++;
+                continue;
+            }
+
             await new Promise<void>((resolve) => {
+                if (!meshRef.current) {
+                    resolve();
+                    return;
+                }
                 const onResults = async (results: any) => {
                     if (!results.multiFaceLandmarks || results.multiFaceLandmarks.length === 0) {
                         console.warn(`Upload skipped: No face in ${file.name}`);
@@ -446,8 +536,8 @@ function RegisterPage() {
                     resolve();
                 };
 
-                meshRef.current!.onResults(onResults);
-                meshRef.current!.send({ image: img });
+                meshRef.current.onResults(onResults);
+                meshRef.current.send({ image: img });
             });
         } catch (e) {
             console.error("Upload failed", e);

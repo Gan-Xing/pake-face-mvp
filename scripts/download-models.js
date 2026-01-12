@@ -7,6 +7,8 @@ const DEST_DIR = path.join(__dirname, '../public/mediapipe');
 
 const ARCFACE_URL = 'https://static.byganxing.com/models/arcface/arcfaceresnet100-8.onnx';
 const ARCFACE_DEST_DIR = path.join(__dirname, '../public/models/arcface');
+const RETINAFACE_URL = 'https://static.byganxing.com/models/retinaface/retinaface_mbn025.onnx';
+const RETINAFACE_DEST_DIR = path.join(__dirname, '../public/models/retinaface');
 
 const FILES = {
   face_detection: [
@@ -102,6 +104,21 @@ async function main() {
     console.log('✅');
   } catch (err) {
     console.error(`\n  ❌ Error downloading ArcFace model:`, err.message);
+  }
+
+  // 3. Download RetinaFace Model
+  console.log('\n🧠 Downloading RetinaFace model...');
+  if (!fs.existsSync(RETINAFACE_DEST_DIR)) {
+    fs.mkdirSync(RETINAFACE_DEST_DIR, { recursive: true });
+    console.log(`  Created directory: ${RETINAFACE_DEST_DIR}`);
+  }
+  const retinaFaceDest = path.join(RETINAFACE_DEST_DIR, 'retinaface_mbn025.onnx');
+  try {
+    process.stdout.write(`  ⬇️  Downloading retinaface_mbn025.onnx... `);
+    await downloadFile(RETINAFACE_URL, retinaFaceDest);
+    console.log('✅');
+  } catch (err) {
+    console.error(`\n  ❌ Error downloading RetinaFace model:`, err.message);
   }
 
   console.log('\n🎉 All models downloaded successfully!');

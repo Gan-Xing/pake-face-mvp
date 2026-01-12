@@ -11,14 +11,14 @@ export default function FacePage() {
         <p className="tag">Local-only AI</p>
         <h1 className="title">Face Register / Check in</h1>
         <p className="subtitle">
-          SCRFD 找脸 + ArcFace embedding + IndexedDB。
+          RetinaFace 找脸 + ArcFace embedding + IndexedDB。
         </p>
       </section>
       <section className="panel">
         <FaceDemo />
       </section>
       <p className="footer">
-        模型放在 <code>public/models</code>（人脸检测 + embedding）。
+        Electron 原生模型放在 <code>electron/app/models</code>（retinaface + arcface）。
       </p>
     </main>
   );
