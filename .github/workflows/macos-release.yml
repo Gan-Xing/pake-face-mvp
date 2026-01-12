@@ -1,0 +1,53 @@
+name: macOS Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build-macos:
+    runs-on: macos-latest
+    env:
+      CSC_IDENTITY_AUTO_DISCOVERY: "false"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "pnpm"
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Download models
+        run: pnpm run download:models
+
+      - name: Build web
+        run: pnpm run build
+
+      - name: Copy to Electron
+        run: npx cap copy electron
+
+      - name: Install Electron dependencies (npm)
+        run: npm install
+        working-directory: electron
+
+      - name: Build macOS app
+        run: pnpm --dir electron run electron:make
+
+      - name: Upload release assets
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            electron/dist/*.dmg
+            electron/dist/*.zip

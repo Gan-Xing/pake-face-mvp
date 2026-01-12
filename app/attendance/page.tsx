@@ -15,9 +15,9 @@ import { ImageModal } from "./components/ImageModal";
 import { useCamera } from "./hooks/useCamera";
 import { useFaceDetection } from "./hooks/useFaceDetection";
 import { useLiveness } from "./hooks/useLiveness";
-import styles from "./demo2.module.css";
+import styles from "./attendance.module.css";
 
-function FaceDemoV2() {
+function AttendancePage() {
   const router = useRouter();
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -66,17 +66,17 @@ function FaceDemoV2() {
 
   // Init Data
   useEffect(() => {
-    const saved = localStorage.getItem("demo2_threshold");
+    const saved = localStorage.getItem("attendance_threshold");
     if (saved) setSimilarityThreshold(parseFloat(saved));
 
     const loadFaces = async () => {
       try {
         await loadFaceStore();
         const list = await listEmbeddings();
-        addLog(`[Demo2] Loaded faces: ${list.length}`);
+        addLog(`[Attendance] Loaded faces: ${list.length}`);
         setFaces(list);
       } catch (err: any) {
-        addLog(`[Demo2] Load Faces Error: ${err.message}`);
+        addLog(`[Attendance] Load Faces Error: ${err.message}`);
       }
     };
     loadFaces();
@@ -281,7 +281,7 @@ function FaceDemoV2() {
       if (recommended < 0.35) recommended = 0.35;
 
       setSimilarityThreshold(recommended);
-      localStorage.setItem("demo2_threshold", recommended.toFixed(3));
+      localStorage.setItem("attendance_threshold", recommended.toFixed(3));
       
       const msg = `校准完成！\n本人最低相似度: ${minSelfScore.toFixed(2)}\n他人最高相似度: ${maxOtherScore.toFixed(2)}\n\n新阈值已设为: ${recommended.toFixed(3)}`;
       alert(msg);
@@ -316,8 +316,8 @@ function FaceDemoV2() {
   return (
     <div className={styles.container}>
       <div className={styles.header}>
-           <h1 className={styles.title}>Face Demo V2</h1>
-           <button className={`${styles.button} ${styles.btnSecondary}`} onClick={() => router.push('/demo2/register')}> 
+           <h1 className={styles.title}>Face Attendance</h1>
+           <button className={`${styles.button} ${styles.btnSecondary}`} onClick={() => router.push("/attendance/register")}>
              + 注册新用户
            </button>
       </div>
@@ -399,4 +399,4 @@ function FaceDemoV2() {
 }
 
 // Export dynamic component (No SSR)
-export default dynamic(() => Promise.resolve(FaceDemoV2), { ssr: false });
+export default dynamic(() => Promise.resolve(AttendancePage), { ssr: false });

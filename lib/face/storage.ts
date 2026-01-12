@@ -1,4 +1,4 @@
-const DB_NAME = "face-demo-db";
+const DB_NAME = "face-attendance-db";
 const STORE_NAME = "faces";
 
 export type FaceRecord = {

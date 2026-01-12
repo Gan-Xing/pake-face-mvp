@@ -38,11 +38,11 @@ export function useFaceDetection({ videoRef, canvasRef, addLog, setStatus, setRe
     useEffect(() => {
         let mounted = true;
         const init = async () => {
-            addLog("[Demo2] Loading models...");
+            addLog("[Attendance] Loading models...");
             try {
                 // Require inside useEffect to avoid SSR issues
                 const { FaceMesh } = require("@mediapipe/face_mesh");
-                addLog("[Demo2] Loading FaceMesh model (liveness)...");
+                addLog("[Attendance] Loading FaceMesh model (liveness)...");
                 const mesh = new FaceMesh({
                     locateFile: (file: string) => `${FACE_MESH_MODEL_URL}/${file}`,
                 });
@@ -71,17 +71,17 @@ export function useFaceDetection({ videoRef, canvasRef, addLog, setStatus, setRe
                 }
 
                 if (isFaceNativeAvailable()) {
-                    addLog("[Demo2] Init FaceNative...");
+                    addLog("[Attendance] Init FaceNative...");
                     await initFaceNative();
                 }
                 
                 if(mounted) {
                      setReady(true);
                      setStatus("就绪");
-                     addLog("[Demo2] Ready!");
+                     addLog("[Attendance] Ready!");
                 }
             } catch (err: any) {
-                addLog(`[Demo2] Init Error: ${err.message}`);
+                addLog(`[Attendance] Init Error: ${err.message}`);
                 if(mounted) setStatus("初始化失败");
             }
         };

@@ -47,7 +47,7 @@ pnpm run download:models
 ```bash
 pnpm run dev:build
 ```
-应用启动后，点击主页的 **"Demo 2"** 即可体验完整功能。
+应用启动后，直接进入 **Face Attendance** 页面即可体验完整功能。
 
 ---
 
@@ -89,7 +89,7 @@ npx electron-builder build --mac --dir -c ./electron-builder.config.json -p neve
 
 ## 📂 项目结构
 
-*   `app/demo2` - **前端核心业务** (React/Next.js)
+*   `app/attendance` - **前端核心业务** (React/Next.js)
     *   `hooks/useCamera.ts` - 摄像头控制逻辑
     *   `hooks/useFaceDetection.ts` - MediaPipe 前端检测逻辑
 *   `electron/` - **桌面主进程**

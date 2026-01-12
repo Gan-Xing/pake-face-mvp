@@ -600,7 +600,7 @@ function RegisterPage() {
           photoDataUrl: avatarUrl 
       });
       setStatus(`注册成功: ${regName}`);
-      setTimeout(() => router.push("/demo2"), 1500);
+      setTimeout(() => router.push("/attendance"), 1500);
     } catch (e) {
       setStatus("保存失败: " + String(e));
     }

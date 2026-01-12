@@ -1,5 +1,5 @@
 import React from 'react';
-import styles from '../demo2.module.css';
+import styles from '../attendance.module.css';
 
 interface UserListProps {
   faces: any[];
