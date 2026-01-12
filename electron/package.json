@@ -25,9 +25,9 @@
     "chokidar": "~3.5.3",
     "electron-is-dev": "~2.0.0",
     "electron-serve": "~1.1.0",
-    "electron-unhandled": "~4.0.1",
-    "electron-updater": "^5.3.0",
     "electron-window-state": "^5.0.3",
+    "mime-types": "^2.1.35",
+    "mime-db": "^1.52.0",
     "onnxruntime-node": "^1.23.2",
     "tslib": "^2.8.1"
   },

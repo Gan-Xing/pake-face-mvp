@@ -1,7 +1,8 @@
 import * as ort from 'onnxruntime-node';
 import { app } from 'electron';
 import { join } from 'path';
-import { readFile } from 'fs/promises';
+import { readFile, access } from 'fs/promises';
+import { constants, existsSync, readdirSync } from 'fs';
 
 type RawTensor = {
   data: ArrayBuffer;
@@ -12,13 +13,18 @@ type ArcFacePayload = {
   input: ArrayBuffer | Float32Array | number[];
 };
 
-const ARC_FACE_MODEL_PATH = join(
-  app.getAppPath(),
-  'app',
-  'models',
-  'arcface',
-  'arcfaceresnet100-8.onnx'
-);
+// Fix path for packaged app (ExtraResources)
+const getModelPath = () => {
+  if (app.isPackaged) {
+    // In production, models are in Contents/Resources/models
+    return join(process.resourcesPath, 'models', 'arcface', 'arcfaceresnet100-8.onnx');
+  } else {
+    // In dev, models are in electron/app/models
+    return join(app.getAppPath(), 'app', 'models', 'arcface', 'arcfaceresnet100-8.onnx');
+  }
+};
+
+const ARC_FACE_MODEL_PATH = getModelPath();
 
 let arcfaceSession: ort.InferenceSession | null = null;
 
@@ -39,9 +45,41 @@ const serializeTensor = (tensor: ort.Tensor): RawTensor => {
 
 export const initNativeFace = async (): Promise<void> => {
   if (!arcfaceSession) {
+    console.log('[FaceNative] Initializing ArcFace...');
+    console.log(`[FaceNative] Target Model Path: ${ARC_FACE_MODEL_PATH}`);
+    
+    // Diagnostic Check
+    if (!existsSync(ARC_FACE_MODEL_PATH)) {
+        console.error(`[FaceNative] ❌ Model NOT FOUND at target path!`);
+        
+        // Debug: List contents of parent directories to find where the file actually is
+        try {
+            if (app.isPackaged) {
+                console.log(`[FaceNative] Debugging Resources Path: ${process.resourcesPath}`);
+                const resources = readdirSync(process.resourcesPath);
+                console.log(`[FaceNative] Contents of Resources:`, resources);
+                
+                const modelsPath = join(process.resourcesPath, 'models');
+                if (existsSync(modelsPath)) {
+                     console.log(`[FaceNative] Contents of models:`, readdirSync(modelsPath));
+                     const arcPath = join(modelsPath, 'arcface');
+                     if(existsSync(arcPath)) {
+                         console.log(`[FaceNative] Contents of models/arcface:`, readdirSync(arcPath));
+                     }
+                }
+            }
+        } catch (e) {
+            console.error('[FaceNative] Debug listing failed:', e);
+        }
+        throw new Error(`Model file not found at: ${ARC_FACE_MODEL_PATH}`);
+    } else {
+        console.log('[FaceNative] ✅ Model file exists. Size:', (await readFile(ARC_FACE_MODEL_PATH)).length);
+    }
+
     arcfaceSession = await ort.InferenceSession.create(ARC_FACE_MODEL_PATH, {
       executionProviders: ['cpu'],
     });
+    console.log('[FaceNative] Session created successfully');
   }
 };
 

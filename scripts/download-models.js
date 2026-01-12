@@ -5,6 +5,9 @@ const https = require('https');
 const BASE_URL = 'https://static.byganxing.com/mediapipe';
 const DEST_DIR = path.join(__dirname, '../public/mediapipe');
 
+const ARCFACE_URL = 'https://static.byganxing.com/models/arcface/arcfaceresnet100-8.onnx';
+const ARCFACE_DEST_DIR = path.join(__dirname, '../public/models/arcface');
+
 const FILES = {
   face_detection: [
     'face_detection_full_range_sparse.tflite',
@@ -59,35 +62,46 @@ async function downloadFile(url, dest) {
 }
 
 async function main() {
-  console.log('🚀 Starting MediaPipe model download...');
+  console.log('🚀 Starting Model Downloads...');
+  console.log('-----------------------------------');
 
+  // 1. Download MediaPipe Models
+  console.log('📦 Downloading MediaPipe models...');
   for (const [folder, files] of Object.entries(FILES)) {
     const folderPath = path.join(DEST_DIR, folder);
     if (!fs.existsSync(folderPath)) {
       fs.mkdirSync(folderPath, { recursive: true });
-      console.log(`Created directory: ${folderPath}`);
+      console.log(`  Created directory: ${folderPath}`);
     }
 
     for (const file of files) {
       const url = `${BASE_URL}/${folder}/${file}`;
       const dest = path.join(folderPath, file);
       
-      if (fs.existsSync(dest)) {
-        // Optional: Skip if exists? Or overwrite? 
-        // For now, let's overwrite to ensure latest version, 
-        // or we could check file size. Overwriting is safer for correctness.
-        // console.log(`  - File exists (overwriting): ${file}`);
-      }
-
       try {
         process.stdout.write(`  ⬇️  Downloading ${folder}/${file}... `);
         await downloadFile(url, dest);
-        console.log('✅ Done');
+        console.log('✅');
       } catch (err) {
-        console.error(`\n❌ Error downloading ${file}:`, err.message);
-        // process.exit(1); // Don't exit, try next file
+        console.error(`\n  ❌ Error downloading ${file}:`, err.message);
       }
     }
+  }
+
+  // 2. Download ArcFace Model
+  console.log('\n🧠 Downloading ArcFace model...');
+  if (!fs.existsSync(ARCFACE_DEST_DIR)) {
+    fs.mkdirSync(ARCFACE_DEST_DIR, { recursive: true });
+    console.log(`  Created directory: ${ARCFACE_DEST_DIR}`);
+  }
+  
+  const arcFaceDest = path.join(ARCFACE_DEST_DIR, 'arcfaceresnet100-8.onnx');
+  try {
+    process.stdout.write(`  ⬇️  Downloading arcfaceresnet100-8.onnx... `);
+    await downloadFile(ARCFACE_URL, arcFaceDest);
+    console.log('✅');
+  } catch (err) {
+    console.error(`\n  ❌ Error downloading ArcFace model:`, err.message);
   }
 
   console.log('\n🎉 All models downloaded successfully!');

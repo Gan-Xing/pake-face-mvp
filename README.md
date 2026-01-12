@@ -1,101 +1,101 @@
 # Pake Face MVP - 离线人脸识别考勤系统
 
-这是一个基于 **Electron** + **Next.js** + **Google MediaPipe** 构建的现代化、离线人脸识别考勤系统演示 (MVP)。
+这是一个基于 **Electron** + **Next.js** + **Hybrid AI (MediaPipe + ArcFace)** 构建的高性能、完全离线的桌面端人脸识别考勤应用。
 
-它展示了如何使用纯前端技术栈（在 Electron 容器中）实现高性能的人脸检测、特征提取、活体检测和考勤记录管理，所有数据均存储在本地 IndexedDB 中，无需联网。
+## ✨ 项目特性
 
-![Demo Screenshot](https://via.placeholder.com/800x450?text=Face+Demo+Screenshot)
+*   **双引擎架构**：结合 MediaPipe（前端快速检测/活体）与 ArcFace（后端高精度识别），兼顾速度与准确率。
+*   **完全离线**：数据与模型均存储在本地，保护隐私，无网络依赖。
+*   **活体检测**：内置眨眼检测 (EAR) 算法，有效防御照片/视频攻击。
+*   **自动化考勤**：识别成功自动打卡，支持抓拍存档与考勤记录导出。
 
-## ✨ 核心功能
+## 🛠 环境要求
 
-*   **👥 多角度人脸注册**
-    *   支持摄像头抓拍和本地图片上传。
-    *   **质量检测**：实时分析人脸清晰度、角度、距离，引导用户录入高质量人脸。
-    *   **特征融合**：自动融合多张照片的特征向量，提高识别准确率。
+*   **Node.js**: v18 或更高版本
+*   **包管理器**: pnpm (主项目), npm (Electron子项目)
+*   **操作系统**: macOS (推荐 M1/M2), Windows, Linux
 
-*   **⚡️ 实时自动考勤**
-    *   **活体检测**：通过检测眨眼动作（Eye Aspect Ratio）防止照片/视频攻击。
-    *   **自动打卡**：识别成功后自动记录考勤，无需手动点击。
-    *   **防刷机制**：内置冷却时间（如 30秒），防止短时间内重复记录。
+---
 
-*   **📊 数据与记录管理**
-    *   **实时抓拍**：每次考勤成功都会抓拍当前画面存档。
-    *   **记录查询**：查看考勤时间、人员、相似度及抓拍大图。
-    *   **用户管理**：支持修改用户名、删除用户。
+## 🚀 快速上手 (Installation)
 
-## 🛠 技术栈
+本项目采用混合依赖管理策略，请严格按照以下步骤安装。
 
-*   **框架**: [Electron](https://www.electronjs.org/), [Next.js](https://nextjs.org/), [React](https://react.dev/)
-*   **AI 模型**: [Google MediaPipe](https://developers.google.com/mediapipe) (Face Mesh & Face Detection)
-*   **数据库**: IndexedDB (本地离线存储)
-*   **样式**: CSS Modules (响应式布局)
-*   **语言**: TypeScript
+### 1. 安装项目依赖
 
-## 🚀 快速开始
-
-### 1. 环境准备
-确保您的电脑上安装了 [Node.js](https://nodejs.org/) (推荐 v18+)。
-
-### 2. 安装依赖
+**第一步：安装前端依赖 (根目录)**
 ```bash
-# 使用 pnpm (推荐)
 pnpm install
-
-# 或者 npm
-npm install
 ```
 
-### 3. 下载 AI 模型 (关键步骤！)
-本项目依赖 MediaPipe 的模型文件，为了减小仓库体积，模型文件未包含在 git 中。请运行以下命令从服务器下载：
+**第二步：安装 Electron 依赖**
+*注意：Electron 目录下必须使用 `npm` 以确保原生模块打包正确。*
+```bash
+cd electron
+npm install
+cd ..
+```
 
+### 2. 下载 AI 模型
+运行脚本自动下载所需的人脸检测与识别模型。
 ```bash
 pnpm run download:models
 ```
-*(该脚本会将模型下载到 `public/mediapipe` 目录)*
 
-### 4. 启动开发环境 (Electron 模式)
-这是开发桌面应用的推荐方式，包含热重载：
-
+### 3. 启动开发环境
+启动包含热重载的开发模式：
 ```bash
 pnpm run dev:build
 ```
-*(该命令会先编译 Next.js，然后启动 Electron 窗口)*
+应用启动后，点击主页的 **"Demo 2"** 即可体验完整功能。
 
-如果您只想在浏览器中调试网页版逻辑，可以使用：
-```bash
-pnpm dev
-```
+---
 
-*   **Demo 入口**: 点击主页的 **"Demo 2: 完整考勤系统"** 进入核心功能演示。
+## 📦 打包指南 (Build)
 
-## 📦 构建与打包
+请按顺序执行以下命令生成生产环境安装包。
 
-构建生产环境版本（生成可执行文件）：
-
+### 1. 构建前端
+编译 Next.js 静态资源：
 ```bash
 pnpm run build
 ```
-构建产物将位于 `dist/` 或 `electron/dist/` 目录下（取决于 electron-builder 配置）。
+
+### 2. 同步资源
+将前端资源复制到 Electron 容器：
+```bash
+npx cap copy electron
+```
+
+### 3. 编译主进程与打包
+进入 Electron 目录，编译 TypeScript 并生成应用包：
+
+```bash
+cd electron
+
+# 编译主进程代码
+npx tsc
+
+# 打包为 macOS 应用 (.app)
+npx electron-builder build --mac --dir -c ./electron-builder.config.json -p never
+
+# (可选) 打包为安装镜像 (.dmg)
+# npx electron-builder build --mac dmg -c ./electron-builder.config.json -p never
+```
+
+打包完成后，可执行文件位于 `electron/dist/mac-arm64/` (Apple Silicon) 或 `electron/dist/mac/` (Intel) 目录下。
+
+---
 
 ## 📂 项目结构
 
-*   `app/demo2/` - **核心业务代码**
-    *   `page.tsx` - 考勤主页（逻辑入口）
-    *   `register/` - 注册页面
-    *   `components/` - UI 组件 (控制面板, 列表, 弹窗等)
-    *   `hooks/` - 核心逻辑 Hooks (`useFaceDetection`, `useLiveness` 等)
-*   `lib/face/` - **人脸算法库**
-    *   `utils.ts` - 几何计算、EAR算法、质量评估
-    *   `storage.ts` - IndexedDB 数据库操作
-    *   `similarity.ts` - 余弦相似度计算
-*   `public/mediapipe/` - AI 模型文件 (需下载)
-*   `electron/` - Electron 主进程代码
-
-## ⚠️ 注意事项
-
-1.  **模型加载**：首次进入页面时需要加载 WASM 和模型文件，可能需要几秒钟，请耐心等待“就绪”状态。
-2.  **摄像头权限**：Electron 或浏览器会请求摄像头权限，请务必允许。
-3.  **性能**：为了平衡功耗，考勤检测帧率默认限制在 10 FPS。
+*   `app/demo2` - **前端核心业务** (React/Next.js)
+    *   `hooks/useCamera.ts` - 摄像头控制逻辑
+    *   `hooks/useFaceDetection.ts` - MediaPipe 前端检测逻辑
+*   `electron/` - **桌面主进程**
+    *   `src/face/native-face.ts` - ArcFace 后端推理引擎 (ONNX)
+    *   `entitlements.mac.plist` - macOS 硬件权限授权文件
+*   `public/models` - AI 模型文件
 
 ## 📄 License
 

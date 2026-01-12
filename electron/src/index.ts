@@ -3,15 +3,10 @@ import { getCapacitorElectronConfig, setupElectronDeepLinking } from '@capacitor
 import type { MenuItemConstructorOptions } from 'electron';
 import { app, MenuItem, session, ipcMain } from 'electron';
 import electronIsDev from 'electron-is-dev';
-import unhandled from 'electron-unhandled';
-import { autoUpdater } from 'electron-updater';
 import { join } from 'path';
 
 import { ElectronCapacitorApp, setupContentSecurityPolicy, setupReloadWatcher } from './setup';
 import { detectArcFacePreprocess, initNativeFace, runArcFace } from './face/native-face';
-
-// Graceful handling of unhandled errors.
-unhandled();
 
 // Define our menu templates (these are optional)
 const trayMenuTemplate: (MenuItemConstructorOptions | MenuItem)[] = [new MenuItem({ label: 'Quit App', role: 'quit' })];
@@ -77,8 +72,8 @@ ipcMain.handle('face-arcface-preprocess', async () => detectArcFacePreprocess())
         ...details.responseHeaders,
         'Content-Security-Policy': [
           electronIsDev
-            ? `default-src ${customScheme}://* 'unsafe-inline' 'unsafe-eval' blob: data: local-resource: http://localhost:3001 ws://localhost:3001 https://static.byganxing.com; script-src ${customScheme}://* 'unsafe-inline' 'unsafe-eval' blob: data: local-resource: http://localhost:3001; connect-src ${customScheme}://* 'unsafe-inline' blob: data: local-resource: http://localhost:3001 ws://localhost:3001 https://static.byganxing.com; img-src ${customScheme}://* 'unsafe-inline' blob: data: local-resource: http://localhost:3001 https://static.byganxing.com; worker-src ${customScheme}://* 'unsafe-inline' 'unsafe-eval' blob: data: local-resource: http://localhost:3001;`
-            : `default-src ${customScheme}://* 'unsafe-inline' 'unsafe-eval' blob: data: local-resource: https://static.byganxing.com; script-src ${customScheme}://* 'unsafe-inline' 'unsafe-eval' blob: data: local-resource:; connect-src ${customScheme}://* 'unsafe-inline' blob: data: local-resource: https://static.byganxing.com; img-src ${customScheme}://* 'unsafe-inline' blob: data: local-resource: https://static.byganxing.com; worker-src ${customScheme}://* 'unsafe-inline' 'unsafe-eval' blob: data: local-resource:;`,
+            ? `default-src ${customScheme}://* 'unsafe-inline' 'unsafe-eval' blob: data: local-resource: http://localhost:3001 ws://localhost:3001 https://static.byganxing.com; script-src ${customScheme}://* 'unsafe-inline' 'unsafe-eval' blob: data: local-resource: http://localhost:3001; connect-src ${customScheme}://* 'unsafe-inline' blob: data: local-resource: http://localhost:3001 ws://localhost:3001 https://static.byganxing.com; img-src ${customScheme}://* 'unsafe-inline' blob: data: local-resource: http://localhost:3001 https://static.byganxing.com; media-src ${customScheme}://* 'unsafe-inline' blob: data: local-resource: http://localhost:3001; worker-src ${customScheme}://* 'unsafe-inline' 'unsafe-eval' blob: data: local-resource: http://localhost:3001;`
+            : `default-src ${customScheme}://* 'unsafe-inline' 'unsafe-eval' blob: data: local-resource: https://static.byganxing.com; script-src ${customScheme}://* 'unsafe-inline' 'unsafe-eval' blob: data: local-resource:; connect-src ${customScheme}://* 'unsafe-inline' blob: data: local-resource: https://static.byganxing.com; img-src ${customScheme}://* 'unsafe-inline' blob: data: local-resource: https://static.byganxing.com; media-src ${customScheme}://* 'unsafe-inline' blob: data: local-resource:; worker-src ${customScheme}://* 'unsafe-inline' 'unsafe-eval' blob: data: local-resource:;`,
         ],
         'Cross-Origin-Opener-Policy': ['same-origin'],
         'Cross-Origin-Embedder-Policy': ['require-corp'],
@@ -89,8 +84,6 @@ ipcMain.handle('face-arcface-preprocess', async () => detectArcFacePreprocess())
 
   // Initialize our app, build windows, and load content.
   await myCapacitorApp.init();
-  // Check for updates if we are in a packaged app.
-  autoUpdater.checkForUpdatesAndNotify();
 })();
 
 // Handle when all of our windows are close (platforms have their own expectations).
